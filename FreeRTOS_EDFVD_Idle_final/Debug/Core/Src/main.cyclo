@@ -1,0 +1,9 @@
+../Core/Src/main.c:114:5:main	1
+../Core/Src/main.c:223:6:SystemClock_Config	3
+../Core/Src/main.c:265:13:MX_TIM3_Init	4
+../Core/Src/main.c:310:13:MX_GPIO_Init	1
+../Core/Src/main.c:337:6:vApplicationIdleHook	2
+../Core/Src/main.c:357:6:LedBlueTask	4
+../Core/Src/main.c:414:6:LedOrangeTask	3
+../Core/Src/main.c:458:6:LedRedTask	4
+../Core/Src/main.c:499:6:Error_Handler	1
