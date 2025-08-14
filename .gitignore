@@ -53,3 +53,74 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# Build artifacts & toolchain outputs
+*.lst
+*.map
+*.hex
+*.axf
+*.bin
+*.a
+
+# CMake / Make
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# STM32CubeIDE / Eclipse specific
+# Ignore workspace metadata and local settings
+.metadata/
+.settings/
+# local run/debug launch files (may contain local ports, ST-Link config, etc.)
+*.launch
+
+# STM32CubeIDE common build folders
+/Debug/
+/Release/
+/Binary/
+/build/
+/_ide_build/
+/_out/
+/_obj/
+/Release-*/
+/Bin/
+
+# CubeMX and project files
+# Generally you SHOULD commit the .ioc and the .mxproject so hardware config is tracked.
+# If you explicitly DON'T want to commit .ioc files, uncomment the next line.
+# /*.ioc
+
+# IDE / Editor
+# VS Code
+.vscode/
+*.code-workspace
+
+# Editor temp files
+*~
+*.swp
+*.swo
+*.bak
+*.tmp
+*.log
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# Other IDEs (if they appear)
+# PlatformIO
+.pio/
+.pioenvs/
+
+# IAR / Keil
+*.ewp
+*.eww
+*.uvprojx
+*.uvoptx
+
+# Tool caches / generated dependency files
+*.d
+*.dep
+*.dSYM/
