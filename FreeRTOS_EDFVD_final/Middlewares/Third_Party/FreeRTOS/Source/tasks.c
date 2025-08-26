@@ -654,7 +654,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 #if( configUSE_EDFVD_SCHEDULER == 1 )
 
 	/*
-	 * Called in vTaskStartScheduler after the Idle task has been created to calculate utilizations.
+	 * Called in vTaskStartScheduler after the idle task has been created to calculate utilizations.
 	 */
 	static void prvCalculateUtilizationsEDFVD( const List_t *pxList, float *pU_LO_LO, float *pU_HI_LO, float *pU_HI_HI ) PRIVILEGED_FUNCTION;
 
@@ -1012,22 +1012,20 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 			/* Set task state information in the TCB for EDF algorithm. */
 			pxNewTCB->xPeriod		= uxPeriod;
 			pxNewTCB->xRelDeadline	= uxRelativeDeadline;
-			pxNewTCB->xAbsDeadline	= xTaskGetTickCount() + uxRelativeDeadline;
 
-			/*
-			 * DEBUG EDF: test overflow
-			 * THE LINE ABOVE NEEDS TO BE COMMENTED OUT.
-			 * The if-else is used to prevent xAbsDeadline from being set incorrectly
-			 * for the idle task.
-			 if( pxNewTCB == xIdleTaskHandle )
-			 {
-			 	 pxNewTCB->xAbsDeadline	= uxRelativeDeadline;
-			 }
-			 else
-			 {
-			 	 pxNewTCB->xAbsDeadline	= xTaskGetTickCount() + uxRelativeDeadline;
-			 }
+			/* The if-else is used to prevent xAbsDeadline from being set incorrectly
+			 * for the idle task.  Furthermore, the absolute deadline, for all other
+			 * tasks, is set using xTaskGetTickCount() so as not to have problems in
+			 * case the initial tick count is different from 0.
 			 */
+			if( pxNewTCB == xIdleTaskHandle )
+			{
+				pxNewTCB->xAbsDeadline	= uxRelativeDeadline;
+			}
+			else
+			{
+				pxNewTCB->xAbsDeadline	= xTaskGetTickCount() + uxRelativeDeadline;
+			}
 
 			prvAddNewTaskToReadyList( pxNewTCB );
 			xReturn = pdPASS;
@@ -1140,11 +1138,11 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 			pxNewTCB->xRelDeadline		= uxRelativeDeadline;
 			pxNewTCB->xAbsDeadline		= xTaskGetTickCount() + uxRelativeDeadline;
 
-			/*
-			 * DEBUG EDFVD: test overflow
-			 * THE LINE ABOVE NEEDS TO BE COMMENTED OUT.
-			 * The if-else is used to prevent xAbsDeadline from being set incorrectly
-			 * for the idle task.
+			/* The if-else is used to prevent xAbsDeadline from being set incorrectly
+			 * for the idle task.  Furthermore, the absolute deadline, for all other
+			 * tasks, is set using xTaskGetTickCount() so as not to have problems in
+			 * case the initial tick count is different from 0.
+			 */
 			 if( pxNewTCB == xIdleTaskHandle )
 			 {
 				 pxNewTCB->xAbsDeadline	= uxRelativeDeadline;
@@ -1153,7 +1151,6 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 			 {
 				 pxNewTCB->xAbsDeadline	= xTaskGetTickCount() + uxRelativeDeadline;
 			 }
-			 */
 
 			pxNewTCB->xVirtualDeadline 	= pxNewTCB->xAbsDeadline;	/* It is updated if the system is in LO-criticality mode using fEDFVD_x. */
 			pxNewTCB->eCriticality		= eCriticality;
@@ -2431,7 +2428,7 @@ BaseType_t xReturn;
 
 		#if( ( configUSE_EDF_SCHEDULER == 0 ) && ( configUSE_EDFVD_SCHEDULER == 0 ) )
 		{
-			/* The Idle task is being created using dynamically allocated RAM. */
+			/* The idle task is being created using dynamically allocated RAM. */
 			xReturn = xTaskCreate(	prvIdleTask,
 									configIDLE_TASK_NAME,
 									configMINIMAL_STACK_SIZE,
@@ -5897,18 +5894,14 @@ void vApplicationTickHook(void)
 			mode. The idle task and the timer task must be excluded. */
 			if( pxTCB->eCriticality == eCRITICALITY_HI && xEDFVD_ModeHI == pdFALSE && pxTCB != xIdleTaskHandle && pxTCB != xTimerTaskHandle )
 			{
-				/* Calculate the virtual deadline using the compression factor. */
-				pxTCB->xVirtualDeadline = ( TickType_t ) ( pxTCB->xAbsDeadline * fEDFVD_x );
-				/*
-				 * DEBUG EDFVD: test overflow
-				 * THE LINE ABOVE NEEDS TO BE COMMENTED OUT.
+				/* Calculate the virtual deadline using the compression factor.
 				 * If the initial tick count is different from 0, using the absolute deadline,
 				 * which may have overflowed, to calculate the virtual deadline would be incorrect.
 				 * Using the relative deadline for the calculation does not cause an error.
 				 * Calculate the offset first to avoid approximation errors.
-				 TickType_t offset = ( TickType_t ) ( pxTCB->xRelDeadline * fEDFVD_x );
-				 pxTCB->xVirtualDeadline = ( TickType_t ) ( xTaskGetTickCount() + offset );
 				 */
+				TickType_t offset = ( TickType_t ) ( pxTCB->xRelDeadline * fEDFVD_x );
+				pxTCB->xVirtualDeadline = ( TickType_t ) ( xTaskGetTickCount() + offset );
 
 				/* Remove the task and insert it in the correct position. */
 				uxListRemove( pxItem );
