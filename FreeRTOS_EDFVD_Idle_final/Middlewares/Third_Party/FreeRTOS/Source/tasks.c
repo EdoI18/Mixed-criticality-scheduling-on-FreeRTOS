@@ -1030,6 +1030,11 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 			/* Set task state information in the TCB for EDF algorithm. */
 			pxNewTCB->xPeriod		= uxPeriod;
 			pxNewTCB->xRelDeadline	= uxRelativeDeadline;
+
+			/* The absolute deadline, for all tasks, is set using xTaskGetTickCount()
+			 * so as not to have problems in case the initial tick count is different 
+			 * from 0.
+			 */
 			pxNewTCB->xAbsDeadline	= xTaskGetTickCount() + uxRelativeDeadline;
 
 			prvAddNewTaskToReadyList( pxNewTCB );
@@ -1141,6 +1146,11 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 			/* Set task state information in the TCB for EDFVD algorithm. */
 			pxNewTCB->xPeriod			= uxPeriod;
 			pxNewTCB->xRelDeadline		= uxRelativeDeadline;
+
+			/* The absolute deadline, for all tasks, is set using xTaskGetTickCount()
+			 * so as not to have problems in case the initial tick count is different 
+			 * from 0.
+			 */
 			pxNewTCB->xAbsDeadline		= xTaskGetTickCount() + uxRelativeDeadline;
 			pxNewTCB->xVirtualDeadline 	= pxNewTCB->xAbsDeadline;	/* It is updated if the system is in LO-criticality mode using fEDFVD_x. */
 			pxNewTCB->eCriticality		= eCriticality;
@@ -5845,18 +5855,14 @@ void vApplicationTickHook(void)
 			mode. The idle task and the timer task must be excluded. */
 			if( pxTCB->eCriticality == eCRITICALITY_HI && xEDFVD_ModeHI == pdFALSE )
 			{
-				/* Calculate the virtual deadline using the compression factor. */
-				pxTCB->xVirtualDeadline = ( TickType_t ) ( pxTCB->xAbsDeadline * fEDFVD_x );
-				/*
-				 * DEBUG EDFVD: test overflow
-				 * THE LINE ABOVE NEEDS TO BE COMMENTED OUT.
+				/* Calculate the virtual deadline using the compression factor.
 				 * If the initial tick count is different from 0, using the absolute deadline,
 				 * which may have overflowed, to calculate the virtual deadline would be incorrect.
 				 * Using the relative deadline for the calculation does not cause an error.
 				 * Calculate the offset first to avoid approximation errors.
-				 TickType_t offset = ( TickType_t ) ( pxTCB->xRelDeadline * fEDFVD_x );
-				 pxTCB->xVirtualDeadline = ( TickType_t ) ( xTaskGetTickCount() + offset );
 				 */
+				TickType_t offset = ( TickType_t ) ( pxTCB->xRelDeadline * fEDFVD_x );
+				pxTCB->xVirtualDeadline = ( TickType_t ) ( xTaskGetTickCount() + offset );
 
 				/* Remove the task and insert it in the correct position. */
 				uxListRemove( pxItem );
