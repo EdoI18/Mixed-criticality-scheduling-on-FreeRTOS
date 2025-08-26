@@ -69,7 +69,7 @@
 
 #define configUSE_PREEMPTION                     0	// Pre-emption DISABLED for EDF or EDF-VD algorithm
 #define configSUPPORT_STATIC_ALLOCATION          0	// Static allocation DISABLED
-#define configSUPPORT_DYNAMIC_ALLOCATION         1	// Dynamic allocation DISABLED
+#define configSUPPORT_DYNAMIC_ALLOCATION         1	// Dynamic allocation ENABLED
 
 /* DEBUG: test Idle task */
 #define configUSE_IDLE_HOOK                      1	// Idle Hook ENABLED
@@ -179,3 +179,4 @@ standard names. */
 /* USER CODE END Defines */
 
 #endif /* FREERTOS_CONFIG_H */
+
