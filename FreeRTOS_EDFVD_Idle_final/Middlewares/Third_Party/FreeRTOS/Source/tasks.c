@@ -428,7 +428,7 @@ PRIVILEGED_DATA static List_t xPendingReadyList;						/*< Tasks that have been r
 /* ----------------EDF---------------- */
 #if( configUSE_EDF_SCHEDULER == 1 )
 
-	PRIVILEGED_DATA static List_t xReadyTasksEDFList;	/*< Ready tasks sorted by ascending xAbsDeadline. */
+	PRIVILEGED_DATA static List_t xReadyTasksEDFList;	/*< Ready tasks sorted by increasing xAbsDeadline. */
 
 #endif
 /* ----------------------------------- */
@@ -436,7 +436,7 @@ PRIVILEGED_DATA static List_t xPendingReadyList;						/*< Tasks that have been r
 /* ---------------EDFVD--------------- */
 #if( configUSE_EDFVD_SCHEDULER == 1 )
 
-	PRIVILEGED_DATA static List_t xReadyTasksEDFVDList;	/*< Ready tasks sorted by ascending deadline, xVirtualDeadline in LO-criticality mode or xAbsDeadline in HI-criticality mode. */
+	PRIVILEGED_DATA static List_t xReadyTasksEDFVDList;	/*< Ready tasks sorted by increasing deadline, xVirtualDeadline in LO-criticality mode or xAbsDeadline in HI-criticality mode. */
 
 #endif
 /* ----------------------------------- */
@@ -5897,3 +5897,4 @@ void vApplicationTickHook(void)
 
 #endif
 /*-----------------------------------------------------------*/
+
