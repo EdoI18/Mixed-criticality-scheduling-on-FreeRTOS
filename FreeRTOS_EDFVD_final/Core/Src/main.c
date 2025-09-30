@@ -36,39 +36,18 @@
 /* USER CODE BEGIN PD */
 /* Periodi e deadline in ms dei Tasks */
 /* LedBlueTask */
-#define LED_BLUE_START_MS		pdMS_TO_TICKS(1U)
-/* DEBUG: test overflow
- * THE LINE ABOVE NEEDS TO BE COMMENTED OUT.
- * The following macro must be aligned with configINITIAL_TICK_COUNT
- * so that the task starts when the system starts.
- #define LED_BLUE_START_MS		 ( portMAX_DELAY - pdMS_TO_TICKS(14000) )
- */
 #define LED_BLUE_PERIOD_MS    	pdMS_TO_TICKS(5000U)
 #define LED_BLUE_DEADLINE_MS  	pdMS_TO_TICKS(5000U)
 #define LED_BLUE_WCET_LO_MS  	pdMS_TO_TICKS(250U)
 #define LED_BLUE_WCET_HI_MS  	pdMS_TO_TICKS(3000U)
 
 /* LedOrangeTask */
-#define LED_ORANGE_START_MS		pdMS_TO_TICKS(1U)
-/* DEBUG: test overflow
- * THE LINE ABOVE NEEDS TO BE COMMENTED OUT.
- * The following macro must be aligned with configINITIAL_TICK_COUNT
- * so that the task starts when the system starts.
- #define LED_ORANGE_START_MS	 ( portMAX_DELAY - pdMS_TO_TICKS(14000) )
- */
 #define LED_ORANGE_PERIOD_MS    pdMS_TO_TICKS(6000U)
 #define LED_ORANGE_DEADLINE_MS  pdMS_TO_TICKS(6000U)
 #define LED_ORANGE_WCET_LO_MS  	pdMS_TO_TICKS(500U)
 #define LED_ORANGE_WCET_HI_MS  	pdMS_TO_TICKS(500U)
 
 /* LedRedTask */
-#define LED_RED_START_MS		pdMS_TO_TICKS(1U)
-/* DEBUG: test overflow
- * THE LINE ABOVE NEEDS TO BE COMMENTED OUT.
- * The following macro must be aligned with configINITIAL_TICK_COUNT
- * so that the task starts when the system starts.
- #define LED_RED_START_MS		 ( portMAX_DELAY - pdMS_TO_TICKS(14000) )
- */
 #define LED_RED_PERIOD_MS    	pdMS_TO_TICKS(10000U)
 #define LED_RED_DEADLINE_MS  	pdMS_TO_TICKS(10000U)
 #define LED_RED_WCET_LO_MS  	pdMS_TO_TICKS(200U)
@@ -159,6 +138,15 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
+/*
+  xPeriodicTaskEDFCreate(LedBlueTask,
+					  "LedBlue",
+					  configMINIMAL_STACK_SIZE,
+					  NULL,
+					  pdMS_TO_TICKS(LED_BLUE_PERIOD_MS),
+					  pdMS_TO_TICKS(LED_BLUE_DEADLINE_MS),
+					  NULL);
+*/
   xPeriodicTaskEDFVDCreate(LedBlueTask,
 		  	  	  	  "LedBlue",
 					  configMINIMAL_STACK_SIZE,
@@ -169,7 +157,15 @@ int main(void)
 					  LED_BLUE_WCET_LO_MS,
 					  LED_BLUE_WCET_HI_MS,
 					  NULL);
-
+/*
+  xPeriodicTaskEDFCreate(LedOrangeTask,
+					  "LedOrange",
+					  configMINIMAL_STACK_SIZE,
+					  NULL,
+					  pdMS_TO_TICKS(LED_ORANGE_PERIOD_MS),
+					  pdMS_TO_TICKS(LED_ORANGE_DEADLINE_MS),
+					  NULL);
+*/
   xPeriodicTaskEDFVDCreate(LedOrangeTask,
 		  	  	  	  "LedOrange",
 					  configMINIMAL_STACK_SIZE,
@@ -180,7 +176,15 @@ int main(void)
 					  LED_ORANGE_WCET_LO_MS,
 					  LED_ORANGE_WCET_HI_MS,
 					  NULL);
-
+/*
+  xPeriodicTaskEDFCreate(LedRedTask,
+					  "LedRede",
+					  configMINIMAL_STACK_SIZE,
+					  NULL,
+					  pdMS_TO_TICKS(LED_RED_PERIOD_MS),
+					  pdMS_TO_TICKS(LED_RED_DEADLINE_MS),
+					  NULL);
+*/
   xPeriodicTaskEDFVDCreate(LedRedTask,
   		  	  	  	  "LedRed",
   					  configMINIMAL_STACK_SIZE,
@@ -357,7 +361,6 @@ void vApplicationIdleHook( void )
 void LedBlueTask(void *argument)
 {
 	/* USER CODE BEGIN 5 */
-	TickType_t xLastWakeTimeBlue = LED_BLUE_START_MS;
 	TickType_t xWCET = LED_BLUE_WCET_LO_MS;
 	/* Infinite loop */
 	for(;;)
@@ -399,7 +402,7 @@ void LedBlueTask(void *argument)
 		HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_15);
 
 		/* Put the task on hold until the next job is periodically released. */
-		vTaskDelayUntil(&xLastWakeTimeBlue, LED_BLUE_PERIOD_MS);
+		vJobTerminate();
 	}
 	/* USER CODE END 5 */
 }
@@ -414,7 +417,7 @@ void LedBlueTask(void *argument)
 void LedOrangeTask(void *argument)
 {
 	/* USER CODE BEGIN 6 */
-	TickType_t xLastWakeTimeOrange = LED_ORANGE_START_MS;
+	TickType_t xWCET = LED_ORANGE_WCET_LO_MS;
 	/* Infinite loop */
 	for(;;)
 	{
@@ -431,7 +434,6 @@ void LedOrangeTask(void *argument)
 		HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
 
 		TickType_t xStart = xTaskGetTickCount();
-		TickType_t xWCET = LED_ORANGE_WCET_LO_MS;
 
 		/* Busy wait to simulate the task's job execution time. */
 		while ((xTaskGetTickCount() - xStart) < xWCET)
@@ -443,7 +445,7 @@ void LedOrangeTask(void *argument)
 		HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
 
 		/* Put the task on hold until the next job is periodically released. */
-		vTaskDelayUntil(&xLastWakeTimeOrange, LED_ORANGE_PERIOD_MS);
+		vJobTerminate();
 	}
 	/* USER CODE END 6 */
 }
@@ -458,11 +460,10 @@ void LedOrangeTask(void *argument)
 void LedRedTask(void *argument)
 {
 	/* USER CODE BEGIN 7 */
-	TickType_t xLastWakeTimeRed = LED_RED_START_MS;
 	/* Infinite loop */
 	for(;;)
 	{
-		/* If the previous running task was the idle task, update the variable.
+/* If the previous running task was the idle task, update the variable.
 		 * In this way, if the idle task starts running again, it will toggle
 		 * the Green LED.
 		 */
@@ -487,7 +488,7 @@ void LedRedTask(void *argument)
 		HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_14);
 
 		/* Put the task on hold until the next job is periodically released. */
-		vTaskDelayUntil(&xLastWakeTimeRed, LED_RED_PERIOD_MS);
+		vJobTerminate();
 	}
 	/* USER CODE END 7 */
 }

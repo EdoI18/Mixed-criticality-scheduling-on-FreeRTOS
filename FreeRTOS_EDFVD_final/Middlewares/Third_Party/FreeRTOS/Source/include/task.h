@@ -390,17 +390,18 @@ is used in assert() statements. */
  // Periodic task to be created.
  void vPeriodicTaskCode( void * argument )
  {
-	 // Regardless of when the task's first job begin his execution, the task starts when the system starts.
-	 // Therefore, at the beginning must be put in xLastWakeTime the tick value (in ms) corresponding to the 
-	 // system's start time.  So it is used to tell the system when to calculate the second wake-up.
- 	 TickType_t xLastWakeTime = xTaskStart;
+ 	 // Regardless of when the task's first job begin his execution, the task starts when the system starts.
+ 	 // The xWakeUpTime variable is set at the tick value corresponding to the system's start time through
+ 	 // the configINITIAL_TICK_COUNT macro.  So it is used to tell the system when to calculate the second
+ 	 // wake-up, it is set in FreeRTOSConfig.h
 
 	 for( ;; )
 	 {
 		 // Task code goes here.
 
-		 // The period (in ms) with which the activity's jobs arrive must be passed as second parameter.
-		 vTaskDelayUntil( &xLastWakeTime, xPeriod );
+		 // When the activity's job is terminate call the following function that wake up the task when the
+		 // next period starts.
+		 vJobTerminate ();
 	 }
  }
 
@@ -420,7 +421,7 @@ is used in assert() statements. */
 	 }
  }
    </pre>
- * \defgroup xTaskCreate xTaskCreate
+ * \defgroup xPeriodicTaskEDFCreate xPeriodicTaskEDFCreate
  * \ingroup Tasks
  */
 #if( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) && ( configUSE_EDF_SCHEDULER == 1 )
@@ -490,16 +491,17 @@ is used in assert() statements. */
  void vPeriodicTaskCode( void * argument )
  {
 	 // Regardless of when the task's first job begin his execution, the task starts when the system starts.
-	 // Therefore, at the beginning must be put in xLastWakeTime the tick value (in ms) corresponding to the 
-	 // system's start time.  So it is used to tell the system when to calculate the second wake-up.
-	 TickType_t xLastWakeTime = xTaskStart;
+ 	 // The xWakeUpTime variable is set at the tick value corresponding to the system's start time through
+ 	 // the configINITIAL_TICK_COUNT macro.  So it is used to tell the system when to calculate the second
+ 	 // wake-up, it is set in FreeRTOSConfig.h
 
 	 for( ;; )
 	 {
 		 // Task code goes here.
 
-		 // The period (in ms) with which the activity's jobs arrive must be passed as second parameter.
-		 vTaskDelayUntil( &xLastWakeTime, xPeriod );
+		 // When the activity's job is terminate call the following function that wake up the task when the
+		 // next period starts.
+		 vJobTerminate ();
 	 }
  }
 
@@ -519,7 +521,7 @@ is used in assert() statements. */
 	 }
  }
    </pre>
- * \defgroup xTaskCreate xTaskCreate
+ * \defgroup xPeriodicTaskEDFVDCreate xPeriodicTaskEDFVDCreate
  * \ingroup Tasks
  */
 #if( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) && ( configUSE_EDFVD_SCHEDULER == 1 )
@@ -958,6 +960,50 @@ void vTaskDelete( TaskHandle_t xTaskToDelete ) PRIVILEGED_FUNCTION;
  */
 void vTaskDelay( const TickType_t xTicksToDelay ) PRIVILEGED_FUNCTION;
 
+/* -----------------------EDF-EDFVD------------------------- */
+/**
+ * task. h
+ * <pre>void vJobTerminate( void );</pre>
+ *
+ * INCLUDE_vTaskDelayUntil must be defined as 1 for this function to be available.
+ * See the configuration section for more information.
+ *
+ * Terminate a job and set the start of the next one at a specified time.  This
+ * function can be used by periodic tasks to ensure a constant execution frequency.
+ *
+ * This function differs from vTaskDelayUntil () in one important aspect:
+ * vTaskDelayUntil () will want as input parameters pxPreviousWakeTime and
+ * xTimeIncrement.  This therefore means that they must be passed as input parameters
+ * that have already been inserted when the task was created, i.e. with the function
+ * xPeriodicTaskEDFCreate or xPeriodicTaskEDFVDCreate.
+ *
+ * vJobTerminate does not require input parameters, manages pxPreviousWakeTime
+ * through the xWakeUpTime variable and xTimeIncrement through the xPeriod variable.
+ * Both xWakeUpTime and xPeriod are variables found in the TCB of the EDF or EDFVD
+ * tasks.
+ *
+ * Example usage:
+   <pre>
+ // Perform an action (or better a job) every period of the task.
+ void vTaskFunction( void * pvParameters )
+ {
+	 for( ;; )
+	 {
+		 // Perform action here.
+
+		 // Wait for the next cycle.
+		 vJobTerminate ();
+	 }
+ }
+   </pre>
+ * \defgroup vJobTerminate vJobTerminate
+ * \ingroup TaskCtrl
+ */
+#if ( configUSE_EDF_SCHEDULER == 1 || configUSE_EDFVD_SCHEDULER == 1 )
+	void vJobTerminate( void ) PRIVILEGED_FUNCTION;
+#endif
+/* --------------------------------------------------------- */
+
 /**
  * task. h
  * <pre>void vTaskDelayUntil( TickType_t *pxPreviousWakeTime, const TickType_t xTimeIncrement );</pre>
@@ -1015,7 +1061,9 @@ void vTaskDelay( const TickType_t xTicksToDelay ) PRIVILEGED_FUNCTION;
  * \defgroup vTaskDelayUntil vTaskDelayUntil
  * \ingroup TaskCtrl
  */
-void vTaskDelayUntil( TickType_t * const pxPreviousWakeTime, const TickType_t xTimeIncrement ) PRIVILEGED_FUNCTION;
+#if ( configUSE_EDF_SCHEDULER == 0 && configUSE_EDFVD_SCHEDULER == 0 )
+	void vTaskDelayUntil( TickType_t * const pxPreviousWakeTime, const TickType_t xTimeIncrement ) PRIVILEGED_FUNCTION;
+#endif
 
 /**
  * task. h

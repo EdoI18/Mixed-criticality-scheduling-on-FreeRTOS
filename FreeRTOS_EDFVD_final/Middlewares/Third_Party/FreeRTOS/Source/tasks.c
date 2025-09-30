@@ -370,6 +370,7 @@ typedef struct tskTaskControlBlock 			/* The old naming convention is used to pr
 		TickType_t 	xPeriod;				/*< Stores the period with which the task's jobs arrive. */
 		TickType_t	xRelDeadline;			/*< Stores the relative deadline to the current job. */
 		TickType_t	xAbsDeadline;			/*< Stores the absolute deadline within which the task's current job must be complete. */
+		TickType_t 	xWakeUpTime;			/*< Stores the time in which the task starts. */
 	#endif
 	/* ----------------------------------- */
 
@@ -383,6 +384,7 @@ typedef struct tskTaskControlBlock 			/* The old naming convention is used to pr
 		TickType_t 	xWCET_LO;				/*< The WCET assigned to the task when the system are in LO-criticality mode. */
 		TickType_t 	xWCET_HI;				/*< The WCET assigned to the task when the system are in HI-criticality mode. */
 		TickType_t 	xExecTime;				/*< Stores the amount of ticks the task's job has spent in execution. */
+		TickType_t 	xWakeUpTime;			/*< Stores the time in which the task starts. */
 	#endif
 	/* ----------------------------------- */
 
@@ -1027,6 +1029,8 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 				pxNewTCB->xAbsDeadline	= xTaskGetTickCount() + uxRelativeDeadline;
 			}
 
+			pxNewTCB->xWakeUpTime 	= configINITIAL_TICK_COUNT;
+
 			prvAddNewTaskToReadyList( pxNewTCB );
 			xReturn = pdPASS;
 		}
@@ -1136,7 +1140,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 			/* Set task state information in the TCB for EDFVD algorithm. */
 			pxNewTCB->xPeriod			= uxPeriod;
 			pxNewTCB->xRelDeadline		= uxRelativeDeadline;
-			pxNewTCB->xAbsDeadline		= xTaskGetTickCount() + uxRelativeDeadline;
+			//pxNewTCB->xAbsDeadline		= xTaskGetTickCount() + uxRelativeDeadline;
 
 			/* The if-else is used to prevent xAbsDeadline from being set incorrectly
 			 * for the idle task.  Furthermore, the absolute deadline, for all other
@@ -1157,6 +1161,7 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 			pxNewTCB->xWCET_LO			= uxWCET_LO;
 			pxNewTCB->xWCET_HI			= uxWCET_HI;
 			pxNewTCB->xExecTime			= 0;
+			pxNewTCB->xWakeUpTime 	= configINITIAL_TICK_COUNT;
 
 			prvAddNewTaskToReadyList( pxNewTCB );
 			xReturn = pdPASS;
@@ -1605,111 +1610,197 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB )
 
 #if ( INCLUDE_vTaskDelayUntil == 1 )
 
-	void vTaskDelayUntil( TickType_t * const pxPreviousWakeTime, const TickType_t xTimeIncrement )
-	{
-	TickType_t xTimeToWake;
-	BaseType_t xAlreadyYielded, xShouldDelay = pdFALSE;
+	#if ( configUSE_EDF_SCHEDULER == 1 || configUSE_EDFVD_SCHEDULER == 1 )
 
-		configASSERT( pxPreviousWakeTime );
-		configASSERT( ( xTimeIncrement > 0U ) );
-		configASSERT( uxSchedulerSuspended == 0 );
-
-		vTaskSuspendAll();
+		void vJobTerminate()
 		{
-			/* Minor optimisation.  The tick count cannot change in this
-			block. */
-			const TickType_t xConstTickCount = xTickCount;
+		TickType_t xTimeToWake;
+		BaseType_t xAlreadyYielded, xShouldDelay = pdFALSE;
 
-			/* Generate the tick time at which the task wants to wake. */
-			xTimeToWake = *pxPreviousWakeTime + xTimeIncrement;
+			TCB_t * const pxTCB = ( TCB_t * ) pxCurrentTCB;
 
-			if( xConstTickCount < *pxPreviousWakeTime )
+			TickType_t * const pxPreviousWakeTime = &pxTCB->xWakeUpTime;
+			const TickType_t xTimeIncrement 	  = pxTCB->xPeriod;
+
+			configASSERT( pxPreviousWakeTime );
+			configASSERT( ( xTimeIncrement > 0U ) );
+			configASSERT( uxSchedulerSuspended == 0 );
+
+			vTaskSuspendAll();
 			{
-				/* The tick count has overflowed since this function was
-				lasted called.  In this case the only time we should ever
-				actually delay is if the wake time has also	overflowed,
-				and the wake time is greater than the tick time.  When this
-				is the case it is as if neither time had overflowed. */
-				if( ( xTimeToWake < *pxPreviousWakeTime ) && ( xTimeToWake > xConstTickCount ) )
+				/* Minor optimisation.  The tick count cannot change in this
+				block. */
+				const TickType_t xConstTickCount = xTickCount;
+
+				/* Generate the tick time at which the task wants to wake. */
+				xTimeToWake = *pxPreviousWakeTime + xTimeIncrement;
+
+				if( xConstTickCount < *pxPreviousWakeTime )
 				{
-					xShouldDelay = pdTRUE;
+					/* The tick count has overflowed since this function was
+					lasted called.  In this case the only time we should ever
+					actually delay is if the wake time has also	overflowed,
+					and the wake time is greater than the tick time.  When this
+					is the case it is as if neither time had overflowed. */
+					if( ( xTimeToWake < *pxPreviousWakeTime ) && ( xTimeToWake > xConstTickCount ) )
+					{
+						xShouldDelay = pdTRUE;
+					}
+					else
+					{
+						mtCOVERAGE_TEST_MARKER();
+					}
+				}
+				else
+				{
+					/* The tick time has not overflowed.  In this case we will
+					delay if either the wake time has overflowed, and/or the
+					tick time is less than the wake time. */
+					if( ( xTimeToWake < *pxPreviousWakeTime ) || ( xTimeToWake > xConstTickCount ) )
+					{
+						xShouldDelay = pdTRUE;
+					}
+					else
+					{
+						mtCOVERAGE_TEST_MARKER();
+					}
+				}
+
+				/* Update the wake time ready for the next call. */
+				pxTCB->xWakeUpTime = xTimeToWake;
+
+				if( xShouldDelay != pdFALSE )
+				{
+					traceTASK_DELAY_UNTIL( xTimeToWake );
+
+					/* ----------------EDF---------------- */
+					#if( configUSE_EDF_SCHEDULER == 1 )
+					{
+						/* Update the absolute deadline for the next call. */
+						pxTCB->xAbsDeadline = xTimeToWake + pxTCB->xRelDeadline;
+					}
+					#endif
+					/* ----------------------------------- */
+
+					/* ---------------EDFVD--------------- */
+					#if( configUSE_EDFVD_SCHEDULER == 1 )
+					{
+						/* Update values for the next call. */
+						pxTCB->xExecTime 	= 0;
+						pxTCB->xAbsDeadline = xTimeToWake + pxTCB->xRelDeadline;
+
+						/* Calculate the offset first to avoid approximation errors. */
+						TickType_t offset = ( TickType_t ) ( pxTCB->xRelDeadline * fEDFVD_x );
+						pxTCB->xVirtualDeadline = ( TickType_t ) ( xEDFVD_ModeHI == pdFALSE && pxTCB->eCriticality == eCRITICALITY_HI ) ? ( TickType_t )( xTimeToWake + offset ) : pxTCB->xAbsDeadline;
+					}
+					#endif
+					/* ----------------------------------- */
+
+					/* prvAddCurrentTaskToDelayedList() needs the block time, not
+					the time to wake, so subtract the current tick count. */
+					prvAddCurrentTaskToDelayedList( xTimeToWake - xConstTickCount, pdFALSE );
 				}
 				else
 				{
 					mtCOVERAGE_TEST_MARKER();
 				}
 			}
-			else
+			xAlreadyYielded = xTaskResumeAll();
+
+			/* Force a reschedule if xTaskResumeAll has not already done so, we may
+			have put ourselves to sleep. */
+			if( xAlreadyYielded == pdFALSE )
 			{
-				/* The tick time has not overflowed.  In this case we will
-				delay if either the wake time has overflowed, and/or the
-				tick time is less than the wake time. */
-				if( ( xTimeToWake < *pxPreviousWakeTime ) || ( xTimeToWake > xConstTickCount ) )
-				{
-					xShouldDelay = pdTRUE;
-				}
-				else
-				{
-					mtCOVERAGE_TEST_MARKER();
-				}
-			}
-
-			/* Update the wake time ready for the next call. */
-			*pxPreviousWakeTime = xTimeToWake;
-
-			if( xShouldDelay != pdFALSE )
-			{
-				traceTASK_DELAY_UNTIL( xTimeToWake );
-
-				/* ----------------EDF---------------- */
-				#if( configUSE_EDF_SCHEDULER == 1 )
-				{
-					TCB_t * const pxTCB = ( TCB_t * ) pxCurrentTCB;
-
-					/* Update the absolute deadline for the next call. */
-					pxTCB->xAbsDeadline = xTimeToWake + pxTCB->xRelDeadline;
-				}
-				#endif
-				/* ----------------------------------- */
-
-				/* ---------------EDFVD--------------- */
-				#if( configUSE_EDFVD_SCHEDULER == 1 )
-				{
-					TCB_t * const pxTCB = ( TCB_t * ) pxCurrentTCB;
-
-					/* Update values for the next call. */
-					pxTCB->xExecTime 	= 0;
-					pxTCB->xAbsDeadline = xTimeToWake + pxTCB->xRelDeadline;
-					
-					/* Calculate the offset first to avoid approximation errors. */
-					TickType_t offset = ( TickType_t ) ( pxTCB->xRelDeadline * fEDFVD_x );
-					pxTCB->xVirtualDeadline = ( TickType_t ) ( xEDFVD_ModeHI == pdFALSE && pxTCB->eCriticality == eCRITICALITY_HI ) ? ( TickType_t )( xTimeToWake + offset ) : pxTCB->xAbsDeadline;
-				}
-				#endif
-				/* ----------------------------------- */
-
-				/* prvAddCurrentTaskToDelayedList() needs the block time, not
-				the time to wake, so subtract the current tick count. */
-				prvAddCurrentTaskToDelayedList( xTimeToWake - xConstTickCount, pdFALSE );
+				portYIELD_WITHIN_API();
 			}
 			else
 			{
 				mtCOVERAGE_TEST_MARKER();
 			}
 		}
-		xAlreadyYielded = xTaskResumeAll();
 
-		/* Force a reschedule if xTaskResumeAll has not already done so, we may
-		have put ourselves to sleep. */
-		if( xAlreadyYielded == pdFALSE )
+	#else
+
+		void vTaskDelayUntil( TickType_t * const pxPreviousWakeTime, const TickType_t xTimeIncrement )
 		{
-			portYIELD_WITHIN_API();
+		TickType_t xTimeToWake;
+		BaseType_t xAlreadyYielded, xShouldDelay = pdFALSE;
+
+			configASSERT( pxPreviousWakeTime );
+			configASSERT( ( xTimeIncrement > 0U ) );
+			configASSERT( uxSchedulerSuspended == 0 );
+
+			vTaskSuspendAll();
+			{
+				/* Minor optimisation.  The tick count cannot change in this
+				block. */
+				const TickType_t xConstTickCount = xTickCount;
+
+				/* Generate the tick time at which the task wants to wake. */
+				xTimeToWake = *pxPreviousWakeTime + xTimeIncrement;
+
+				if( xConstTickCount < *pxPreviousWakeTime )
+				{
+					/* The tick count has overflowed since this function was
+					lasted called.  In this case the only time we should ever
+					actually delay is if the wake time has also	overflowed,
+					and the wake time is greater than the tick time.  When this
+					is the case it is as if neither time had overflowed. */
+					if( ( xTimeToWake < *pxPreviousWakeTime ) && ( xTimeToWake > xConstTickCount ) )
+					{
+						xShouldDelay = pdTRUE;
+					}
+					else
+					{
+						mtCOVERAGE_TEST_MARKER();
+					}
+				}
+				else
+				{
+					/* The tick time has not overflowed.  In this case we will
+					delay if either the wake time has overflowed, and/or the
+					tick time is less than the wake time. */
+					if( ( xTimeToWake < *pxPreviousWakeTime ) || ( xTimeToWake > xConstTickCount ) )
+					{
+						xShouldDelay = pdTRUE;
+					}
+					else
+					{
+						mtCOVERAGE_TEST_MARKER();
+					}
+				}
+
+				/* Update the wake time ready for the next call. */
+				*pxPreviousWakeTime = xTimeToWake;
+
+				if( xShouldDelay != pdFALSE )
+				{
+					traceTASK_DELAY_UNTIL( xTimeToWake );
+
+					/* prvAddCurrentTaskToDelayedList() needs the block time, not
+					the time to wake, so subtract the current tick count. */
+					prvAddCurrentTaskToDelayedList( xTimeToWake - xConstTickCount, pdFALSE );
+				}
+				else
+				{
+					mtCOVERAGE_TEST_MARKER();
+				}
+			}
+			xAlreadyYielded = xTaskResumeAll();
+
+			/* Force a reschedule if xTaskResumeAll has not already done so, we may
+			have put ourselves to sleep. */
+			if( xAlreadyYielded == pdFALSE )
+			{
+				portYIELD_WITHIN_API();
+			}
+			else
+			{
+				mtCOVERAGE_TEST_MARKER();
+			}
 		}
-		else
-		{
-			mtCOVERAGE_TEST_MARKER();
-		}
-	}
+
+	#endif
 
 #endif /* INCLUDE_vTaskDelayUntil */
 /*-----------------------------------------------------------*/
@@ -5936,4 +6027,3 @@ void vApplicationTickHook(void)
 
 #endif
 /*-----------------------------------------------------------*/
-

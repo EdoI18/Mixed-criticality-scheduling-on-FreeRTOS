@@ -59,7 +59,7 @@
 
 /* DEBUG: test overflow */
 #define configINITIAL_TICK_COUNT 				 0
-//#define configINITIAL_TICK_COUNT 				 ( portMAX_DELAY - pdMS_TO_TICKS(14000) )
+//#define configINITIAL_TICK_COUNT 				 ( portMAX_DELAY - pdMS_TO_TICKS(2500) )
 
 #define configUSE_EDF_SCHEDULER				 	 0
 #define configUSE_EDFVD_SCHEDULER				 1
@@ -179,4 +179,3 @@ standard names. */
 /* USER CODE END Defines */
 
 #endif /* FREERTOS_CONFIG_H */
-
