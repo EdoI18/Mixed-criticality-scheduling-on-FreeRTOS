@@ -984,7 +984,7 @@ void vTaskDelay( const TickType_t xTicksToDelay ) PRIVILEGED_FUNCTION;
  *
  * Example usage:
    <pre>
- // Perform an action (or better a job) every period of the task.
+ // Perform an action (or rather a job) every period of the task.
  void vTaskFunction( void * pvParameters )
  {
 	 for( ;; )
